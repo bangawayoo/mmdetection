@@ -17,8 +17,8 @@ from mmdet.models import build_detector
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--config', default = 'configs/pascal_voc/faster_rcnn_r50_fpn_1x_voc0712.py', help='test config file path')
+    parser.add_argument('--checkpoint', default = 'checkpoints/faster_rcnn_r50_fpn_1x_voc0712_20200624-c9895d40.pth', help='checkpoint file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
         '--fuse-conv-bn',
@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument(
         '--eval',
         type=str,
+        default = 'mAP',
         nargs='+',
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC')
