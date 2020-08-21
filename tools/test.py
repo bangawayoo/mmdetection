@@ -17,8 +17,8 @@ from mmdet.utils import _g_bbox_counter
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('--config', default = 'configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py', help='test config file path')
-    parser.add_argument('--checkpoint', default = 'checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth', help='checkpoint file')
+    parser.add_argument('--config', default = 'configs/ssd/ssd300_coco.py', help='test config file path')
+    parser.add_argument('--checkpoint', default = 'checkpoints/ssd300_coco_20200307-a92d2092.pth', help='checkpoint file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
         '--fuse-conv-bn',
@@ -154,9 +154,12 @@ def main():
 
     print("\n\nMeasured FPS:")
     print("Total : {:.2f} // Post-processing : {:.2f}".format(fps[0], fps[1]))
-    mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
-    max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
-    print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
+    try:
+        mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
+        max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
+        print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
+    except:
+        print("Bbox Count Not Implemented")
 
 if __name__ == '__main__':
     main()
