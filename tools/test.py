@@ -137,6 +137,7 @@ def main():
         model = MMDataParallel(model, device_ids=[0])
         outputs, fps = single_gpu_test(model, data_loader, args.show, args.show_dir,
                                   args.show_score_thr)
+
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
@@ -144,6 +145,7 @@ def main():
             broadcast_buffers=False)
         outputs = multi_gpu_test(model, data_loader, args.tmpdir,
                                  args.gpu_collect)
+
     rank, _ = get_dist_info()
     if rank == 0:
         if args.out:
@@ -157,10 +159,12 @@ def main():
 
     print("\n\nMeasured FPS:")
     print("Total : {:.2f} // Post-processing : {:.2f}".format(fps[0], fps[1]))
-    # mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
-    # max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
-    # print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
-
+    try:
+        mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
+        max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
+        print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
+    except:
+        print("Bbox Count Not Implemented")
 
 if __name__ == '__main__':
     main()

@@ -2,6 +2,7 @@ import torch
 from torchvision.ops.boxes import nms as torch_nms
 from ...utils import count_bbox
 
+
 class PostProc(object):
     def __init__(self, conf_threshold, nms_threshold, max_boxes, n_classes, coord_h, coord_w):
         self.coord_h, self.coord_w = float(coord_h), float(coord_w)
@@ -73,6 +74,7 @@ class PostProc(object):
         mean_cnt = sum(per_cls_box) / len(per_cls_box)
         max_cnt = max(per_cls_box)
         count_bbox(mean_cnt, max_cnt)
+
 
         if len(result_boxes) > 0:
             # result_boxes = torch.cat(result_boxes, dim=0)[:self.max_boxes]

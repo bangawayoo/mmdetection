@@ -8,6 +8,7 @@ from mmdet.core import (auto_fp16, build_bbox_coder, force_fp32, multi_apply,
 from mmdet.models.builder import HEADS, build_loss
 from mmdet.models.losses import accuracy
 from ...postproc import PostProc
+import mmcv
 
 @HEADS.register_module()
 class BBoxHead(nn.Module):
@@ -193,6 +194,7 @@ class BBoxHead(nn.Module):
                    scale_factor,
                    rescale=False,
                    cfg=None):
+        tick = mmcv.check_time('nms')
         if isinstance(cls_score, list):
             cls_score = sum(cls_score) / float(len(cls_score))
         scores = F.softmax(cls_score, dim=1) if cls_score is not None else None
@@ -215,19 +217,20 @@ class BBoxHead(nn.Module):
                 # Change shape to (N, # classes, 4)
                 bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(bboxes.size()[0], -1)
                 # bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor)
-                # n_classes = bboxes.shape[1] + 1
 
         if cfg is None:
             return bboxes, scores
         else:
-            # post_processor = PostProc(conf_threshold=cfg.score_thr, nms_threshold=cfg.nms['iou_threshold'], n_classes=n_classes, max_boxes=cfg.max_per_img, coord_h=1, coord_w=1 )
-            # det_bboxes, result_confs, det_labels = post_processor.process(bboxes, scores, img_shape[0], img_shape[1])
-            # result_confs.unsqueeze_(-1)
-            # det_bboxes = torch.cat([det_bboxes, result_confs], dim=-1)
 
-            det_bboxes, det_labels = multiclass_nms(bboxes, scores,
-                                                    cfg.score_thr, cfg.nms,
-                                                    cfg.max_per_img)
+            n_classes = bboxes.shape[1] + 1
+            post_processor = PostProc(conf_threshold=cfg.score_thr, nms_threshold=cfg.nms['iou_threshold'], n_classes=n_classes, max_boxes=cfg.max_per_img, coord_h=1, coord_w=1 )
+            det_bboxes, result_confs, det_labels = post_processor.process(bboxes, scores, img_shape[0], img_shape[1])
+            result_confs.unsqueeze_(-1)
+            det_bboxes = torch.cat([det_bboxes, result_confs], dim=-1)
+            #
+            # det_bboxes, det_labels = multiclass_nms(bboxes, scores,
+            #                                         cfg.score_thr, cfg.nms,
+            #                                         cfg.max_per_img)
 
             return det_bboxes, det_labels
 

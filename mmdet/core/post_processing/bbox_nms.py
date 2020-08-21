@@ -1,4 +1,5 @@
 import torch
+import mmcv
 from mmcv.ops.nms import batched_nms
 
 
@@ -26,6 +27,7 @@ def multiclass_nms(multi_bboxes,
         tuple: (bboxes, labels), tensors of shape (k, 5) and (k, 1). Labels \
             are 0-based.
     """
+    mmcv.check_time('nms')
     num_classes = multi_scores.size(1) - 1
     # exclude background category
     if multi_bboxes.shape[1] > 4:
