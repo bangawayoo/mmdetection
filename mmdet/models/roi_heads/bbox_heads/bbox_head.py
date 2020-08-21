@@ -215,22 +215,26 @@ class BBoxHead(nn.Module):
                 scale_factor = bboxes.new_tensor(scale_factor)
 
                 # Change shape to (N, # classes, 4)
-                bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(bboxes.size()[0], -1)
-                # bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor)
+                # bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(bboxes.size()[0], -1) # Shape : (1000,320)
+                if bboxes.shape[1] != 4:
+                    bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor)
+                else:
+                    bboxes = bboxes / scale_factor
 
         if cfg is None:
             return bboxes, scores
         else:
+            if True:
+                n_classes = scores.size(-1)
+                post_processor = PostProc(conf_threshold=cfg.score_thr, nms_threshold=cfg.nms['iou_threshold'], n_classes=n_classes, max_boxes=cfg.max_per_img, coord_h=1, coord_w=1 )
+                det_bboxes, result_confs, det_labels = post_processor.process(bboxes, scores, img_shape[0], img_shape[1])
+                result_confs.unsqueeze_(-1)
+                det_bboxes = torch.cat([det_bboxes, result_confs], dim=-1)
 
-            n_classes = bboxes.shape[1] + 1
-            post_processor = PostProc(conf_threshold=cfg.score_thr, nms_threshold=cfg.nms['iou_threshold'], n_classes=n_classes, max_boxes=cfg.max_per_img, coord_h=1, coord_w=1 )
-            det_bboxes, result_confs, det_labels = post_processor.process(bboxes, scores, img_shape[0], img_shape[1])
-            result_confs.unsqueeze_(-1)
-            det_bboxes = torch.cat([det_bboxes, result_confs], dim=-1)
-            #
-            # det_bboxes, det_labels = multiclass_nms(bboxes, scores,
-            #                                         cfg.score_thr, cfg.nms,
-            #                                         cfg.max_per_img)
+            else :
+                det_bboxes, det_labels = multiclass_nms(bboxes, scores,
+                                                        cfg.score_thr, cfg.nms,
+                                                        cfg.max_per_img)
 
             return det_bboxes, det_labels
 

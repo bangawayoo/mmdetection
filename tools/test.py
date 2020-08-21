@@ -1,7 +1,5 @@
 import argparse
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
 import mmcv
 import torch
 from mmcv import Config, DictAction
@@ -13,16 +11,16 @@ from mmdet.apis import multi_gpu_test, single_gpu_test
 from mmdet.core import wrap_fp16_model
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.models import build_detector
-from mmdet.utils import _g_bbox_counter
+from mmdet.utils import _g_bbox_counter, _g_rpn_timer
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('--config', default = 'configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py', help='test config file path')
+    parser.add_argument('--config', default = 'configs/cascade_rcnn/cascade_rcnn_r50_fpn_1x_coco.py', help='test config file path')
     # parser.add_argument('--config', default = 'configs/retinanet/retinanet_r50_fpn_1x_coco.py', help='test config file path')
     # parser.add_argument('--config', default='configs/fcos/fcos_r50_caffe_fpn_gn-head_4x4_1x_coco.py')
     # parser.add_argument('--config', default='configs/ssd/ssd300_coco.py')
-    parser.add_argument('--checkpoint', default='checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth', help='checkpoint file')
+    parser.add_argument('--checkpoint', default='checkpoints/cascade_rcnn_r50_fpn_1x_coco_20200316-3dc56deb.pth', help='checkpoint file')
     # parser.add_argument('--checkpoint', default = 'checkpoints/retinanet_r50_fpn_1x_coco_20200130-c2398f9e.pth', help='checkpoint file')
     # parser.add_argument('--checkpoint', default='checkpoints/fcos_r50_caffe_fpn_gn_1x_4gpu_20200218-7831950c.pth', help='checkpoint file')
     # parser.add_argument('--checkpoint', default='checkpoints/ssd300_coco_20200307-a92d2092.pth', help='checkpoint file')
@@ -158,13 +156,21 @@ def main():
             dataset.evaluate(outputs, args.eval, **kwargs)
 
     print("\n\nMeasured FPS:")
-    print("Total : {:.2f} // Post-processing : {:.2f}".format(fps[0], fps[1]))
+    print("Total : {:.2f} // Post-processing : {:.2f}".format(fps[0], fps[1]), end=' ')
+    if len(_g_rpn_timer) > 1 :
+        num_exclude = 5
+        t = (len(_g_rpn_timer) - num_exclude) / sum(_g_rpn_timer[num_exclude:])
+        print("RPN Post-processing : {:.2f}".format(t))
     try:
         mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
         max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
-        print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
+        print("\nBbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
+        if len(_g_bbox_counter) > 3 :
+            mean_bbox = _g_bbox_counter['mean_rpn'] / _g_bbox_counter['image_rpn']
+            max_bbox = _g_bbox_counter['max_rpn'] / _g_bbox_counter['image_rpn']
+            print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
     except:
-        print("Bbox Count Not Implemented")
+        print("\nBbox Count Not Implemented")
 
 if __name__ == '__main__':
     main()

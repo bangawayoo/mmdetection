@@ -11,7 +11,7 @@ class PostProc(object):
         self.max_boxes = max_boxes
         self.n_classes = n_classes
 
-    def process(self, boxes, probs, img_h, img_w, score_factors = None):
+    def process(self, boxes, probs, img_h, img_w, score_factors = None, rpn_layer=False):
         # boxes:    (#boxes, 4) or (#boxes, #classes, 4), 4 = ltrbresult_labels = torch.zeros((1)).float().cuda()
         # probs:    (#boxes, #classes)
 
@@ -21,7 +21,7 @@ class PostProc(object):
             boxes = boxes[:, 1:]
         # boxes:    (#boxes, #classes - 1, 4)
 
-        # recale box cooridnate, remove background probability
+        # recale box coordinate, remove background probability
         # boxes[:, :, [0, 2]] = torch.clamp(boxes[:, :, [0, 2]] * (img_w / self.coord_w), min=0, max=img_w - 1)
         # boxes[:, :, [1, 3]] = torch.clamp(boxes[:, :, [1, 3]] * (img_h / self.coord_h), min=0, max=img_h - 1)
         boxes[:, :, [0, 2]] = torch.clamp(boxes[:, :, [0, 2]] , min=0, max=img_w - 1)
@@ -36,16 +36,15 @@ class PostProc(object):
 
         # bbox count
         per_cls_box = []
-        # scores for centerness[FCOS]
-        # scores = confs * score_factors[:, None]
+        ###--- used in FCOS ---###
+        # scores = confs * score_factors[:, None]        # scores for centerness
         for c in range(self.n_classes - 1):
             cls_boxes = boxes[:, c]
             cls_confs = confs[:, c]
-            # used in FCOS
+            ###--- used in FCOS ---###
             # cls_scores = scores[:, c]
             # cls_boxes:    (#boxes, 4)
             # cls_confs:    (#boxes)
-
             keep_indices = torch.nonzero(cls_confs > self.conf_threshold).view(-1)
             # bbox count
             per_cls_box.append(keep_indices.numel())
@@ -53,7 +52,8 @@ class PostProc(object):
                 continue
             cls_boxes = cls_boxes[keep_indices]
             cls_confs = cls_confs[keep_indices]
-            # used in fcos
+
+            ###--- used in FCOS ---###
             # cls_confs = cls_scores[keep_indices]
 
 
@@ -73,8 +73,7 @@ class PostProc(object):
         # bbox count
         mean_cnt = sum(per_cls_box) / len(per_cls_box)
         max_cnt = max(per_cls_box)
-        count_bbox(mean_cnt, max_cnt)
-
+        count_bbox(mean_cnt, max_cnt, rpn_layer)
 
         if len(result_boxes) > 0:
             # result_boxes = torch.cat(result_boxes, dim=0)[:self.max_boxes]

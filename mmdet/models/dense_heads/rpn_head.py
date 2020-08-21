@@ -8,6 +8,8 @@ from ..builder import HEADS
 from .anchor_head import AnchorHead
 from .rpn_test_mixin import RPNTestMixin
 from .postproc import PostProc
+import mmcv
+from ...utils import _g_rpn_timer
 
 @HEADS.register_module()
 class RPNHead(RPNTestMixin, AnchorHead):
@@ -106,6 +108,7 @@ class RPNHead(RPNTestMixin, AnchorHead):
                 are bounding box positions (tl_x, tl_y, br_x, br_y) and the
                 5-th column is a score between 0 and 1.
         """
+        tick = mmcv.check_time('rpn_nms')
         cfg = self.test_cfg if cfg is None else cfg
         # bboxes from different level should be independent during NMS,
         # level_ids are used as labels for batched NMS to separate them
@@ -163,16 +166,22 @@ class RPNHead(RPNTestMixin, AnchorHead):
                 ids = ids[valid_inds]
 
         # TODO: remove the hard coded nms type
-        nms_cfg = dict(type='nms', iou_threshold=cfg.nms_thr)
-        dets, keep = batched_nms(proposals, scores, ids, nms_cfg)
-
-        # score_thr = cfg.score_thr
-        # nms_thr = cfg.nms['iou_threshold']
-        # max_boxes = cfg.max_per_img
-        # result_boxes, result_confs, result_labels = PostProc(conf_threshold=score_thr, nms_threshold=nms_thr,
-        #                                                      max_boxes=max_boxes, n_classes=21, coord_h=1,
-        #                                                      coord_w=1).process(proposals, scores, img_shape[0],
-        #                                                                         img_shape[1])
+        # nms_cfg = dict(type='nms', iou_threshold=cfg.nms_thr)
+        # dets, keep = batched_nms(proposals, scores, ids, nms_cfg)
+        # return dets[:cfg.nms_post]
         #
-        # det_bboxes = torch.cat([result_boxes, result_confs[:, None]], -1)
-        return dets[:cfg.nms_post]
+        num_class = 2 # FG or BG
+        score_thr = 0
+        nms_thr = cfg.nms_thr
+        max_boxes = cfg.nms_post
+        probs = scores[:,None].expand(scores.size(0),num_class) # Create dummy BG column
+
+        result_boxes, result_confs, result_labels = PostProc(conf_threshold=score_thr, nms_threshold=nms_thr,
+                                                             max_boxes=max_boxes, n_classes=num_class, coord_h=1,
+                                                             coord_w=1).process(proposals, probs, img_shape[0],
+                                                                                img_shape[1], rpn_layer=True)
+        det_bboxes = torch.cat([result_boxes, result_confs[:, None]], -1)
+        rpn_nms = mmcv.check_time('rpn_nms')
+        _g_rpn_timer.append(rpn_nms)
+
+        return det_bboxes

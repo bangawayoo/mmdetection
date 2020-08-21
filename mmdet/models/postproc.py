@@ -20,8 +20,7 @@ class PostProc(object):
 
 
         if len(boxes.shape) == 2:
-            # boxes = torch.stack([boxes] * (self.n_classes - 1), dim=1)
-            boxes = torch.stack([boxes] * (self.n_classes), dim=1)
+            boxes = torch.stack([boxes] * (self.n_classes-1), dim=1)
         else:
             # boxes = boxes[:, 1:]
             pass

@@ -64,17 +64,10 @@ def single_gpu_test(model,
         per_batch_total.append(total_t)
         per_batch_nms.append(nms_t)
         #########################
-
-        ### Measure time here ###
-        total_t, nms_t = mmcv.check_time('total'), mmcv.check_time('nms')
-        per_batch_total.append(total_t)
-        per_batch_nms.append(nms_t)
-        #########################
         batch_size = len(data['img_metas'][0].data)
         for _ in range(batch_size):
             prog_bar.update()
-        # if i == 15:
-        #     break
+
     num_exclude = 5
     total_fps = (len(per_batch_total) - num_exclude) / sum(per_batch_total[num_exclude:])
     nms_fps = (len(per_batch_nms) - num_exclude) / sum(per_batch_nms[num_exclude:])
