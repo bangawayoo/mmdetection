@@ -1,6 +1,7 @@
 import argparse
 import os
-
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 import mmcv
 import torch
 from mmcv import Config, DictAction
@@ -12,13 +13,19 @@ from mmdet.apis import multi_gpu_test, single_gpu_test
 from mmdet.core import wrap_fp16_model
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.models import build_detector
-
+from mmdet.utils import _g_bbox_counter
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--config', default = 'configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py', help='test config file path')
+    # parser.add_argument('--config', default = 'configs/retinanet/retinanet_r50_fpn_1x_coco.py', help='test config file path')
+    # parser.add_argument('--config', default='configs/fcos/fcos_r50_caffe_fpn_gn-head_4x4_1x_coco.py')
+    # parser.add_argument('--config', default='configs/ssd/ssd300_coco.py')
+    parser.add_argument('--checkpoint', default='checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth', help='checkpoint file')
+    # parser.add_argument('--checkpoint', default = 'checkpoints/retinanet_r50_fpn_1x_coco_20200130-c2398f9e.pth', help='checkpoint file')
+    # parser.add_argument('--checkpoint', default='checkpoints/fcos_r50_caffe_fpn_gn_1x_4gpu_20200218-7831950c.pth', help='checkpoint file')
+    # parser.add_argument('--checkpoint', default='checkpoints/ssd300_coco_20200307-a92d2092.pth', help='checkpoint file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
         '--fuse-conv-bn',
@@ -34,6 +41,7 @@ def parse_args():
     parser.add_argument(
         '--eval',
         type=str,
+        default = 'bbox',
         nargs='+',
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC')
@@ -127,7 +135,7 @@ def main():
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
-        outputs = single_gpu_test(model, data_loader, args.show, args.show_dir,
+        outputs, fps = single_gpu_test(model, data_loader, args.show, args.show_dir,
                                   args.show_score_thr)
     else:
         model = MMDistributedDataParallel(
@@ -136,7 +144,6 @@ def main():
             broadcast_buffers=False)
         outputs = multi_gpu_test(model, data_loader, args.tmpdir,
                                  args.gpu_collect)
-
     rank, _ = get_dist_info()
     if rank == 0:
         if args.out:
@@ -147,6 +154,12 @@ def main():
             dataset.format_results(outputs, **kwargs)
         if args.eval:
             dataset.evaluate(outputs, args.eval, **kwargs)
+
+    print("\n\nMeasured FPS:")
+    print("Total : {:.2f} // Post-processing : {:.2f}".format(fps[0], fps[1]))
+    # mean_bbox = _g_bbox_counter['mean'] / _g_bbox_counter['image']
+    # max_bbox = _g_bbox_counter['max'] / _g_bbox_counter['image']
+    # print("Bbox Count Mean : {:.1f} // Max : {:.1f} ".format(mean_bbox, max_bbox))
 
 
 if __name__ == '__main__':

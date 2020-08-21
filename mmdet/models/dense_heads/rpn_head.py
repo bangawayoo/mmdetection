@@ -7,7 +7,7 @@ from mmcv.ops import batched_nms
 from ..builder import HEADS
 from .anchor_head import AnchorHead
 from .rpn_test_mixin import RPNTestMixin
-
+from .postproc import PostProc
 
 @HEADS.register_module()
 class RPNHead(RPNTestMixin, AnchorHead):
@@ -165,4 +165,14 @@ class RPNHead(RPNTestMixin, AnchorHead):
         # TODO: remove the hard coded nms type
         nms_cfg = dict(type='nms', iou_threshold=cfg.nms_thr)
         dets, keep = batched_nms(proposals, scores, ids, nms_cfg)
+
+        # score_thr = cfg.score_thr
+        # nms_thr = cfg.nms['iou_threshold']
+        # max_boxes = cfg.max_per_img
+        # result_boxes, result_confs, result_labels = PostProc(conf_threshold=score_thr, nms_threshold=nms_thr,
+        #                                                      max_boxes=max_boxes, n_classes=21, coord_h=1,
+        #                                                      coord_w=1).process(proposals, scores, img_shape[0],
+        #                                                                         img_shape[1])
+        #
+        # det_bboxes = torch.cat([result_boxes, result_confs[:, None]], -1)
         return dets[:cfg.nms_post]

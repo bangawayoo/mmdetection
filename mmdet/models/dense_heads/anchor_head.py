@@ -8,7 +8,8 @@ from mmdet.core import (anchor_inside_flags, build_anchor_generator,
                         multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
-
+from .postproc import PostProc
+import mmcv
 
 @HEADS.register_module()
 class AnchorHead(BaseDenseHead):
@@ -428,7 +429,6 @@ class AnchorHead(BaseDenseHead):
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds'))
     def loss(self,
-             cls_scores,
              bbox_preds,
              gt_bboxes,
              gt_labels,
@@ -551,6 +551,7 @@ class AnchorHead(BaseDenseHead):
             >>> assert det_bboxes.shape[1] == 5
             >>> assert len(det_bboxes) == len(det_labels) == cfg.max_per_img
         """
+        tick = mmcv.check_time('nms')
         assert len(cls_scores) == len(bbox_preds)
         num_levels = len(cls_scores)
 
@@ -647,7 +648,16 @@ class AnchorHead(BaseDenseHead):
             # BG cat_id: num_class
             padding = mlvl_scores.new_zeros(mlvl_scores.shape[0], 1)
             mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
-        det_bboxes, det_labels = multiclass_nms(mlvl_bboxes, mlvl_scores,
-                                                cfg.score_thr, cfg.nms,
-                                                cfg.max_per_img)
+
+        # det_bboxes, det_labels = multiclass_nms(mlvl_bboxes, mlvl_scores,
+        #                                         cfg.score_thr, cfg.nms,
+        #                                         cfg.max_per_img)
+
+        score_thr = cfg.score_thr
+        nms_thr = cfg.nms['iou_threshold']
+        max_boxes = cfg.max_per_img
+        result_boxes, result_confs, result_labels = PostProc(conf_threshold=score_thr, nms_threshold=nms_thr, max_boxes=max_boxes, n_classes=81, coord_h=1, coord_w=1 ).process(mlvl_bboxes, mlvl_scores, img_shape[0], img_shape[1])
+
+        det_bboxes = torch.cat([result_boxes, result_confs[:, None]], -1)
+        det_labels = result_labels
         return det_bboxes, det_labels

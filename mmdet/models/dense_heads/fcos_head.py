@@ -6,6 +6,8 @@ from mmcv.cnn import Scale, normal_init
 from mmdet.core import distance2bbox, force_fp32, multi_apply, multiclass_nms
 from ..builder import HEADS, build_loss
 from .anchor_free_head import AnchorFreeHead
+import mmcv
+from .postproc import PostProc
 
 INF = 1e8
 
@@ -341,6 +343,7 @@ class FCOSHead(AnchorFreeHead):
                 5-th column is a score between 0 and 1.
         """
         cfg = self.test_cfg if cfg is None else cfg
+        tick = mmcv.check_time('nms')
         assert len(cls_scores) == len(bbox_preds) == len(mlvl_points)
         mlvl_bboxes = []
         mlvl_scores = []
@@ -374,13 +377,22 @@ class FCOSHead(AnchorFreeHead):
         # BG cat_id: num_class
         mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
         mlvl_centerness = torch.cat(mlvl_centerness)
-        det_bboxes, det_labels = multiclass_nms(
-            mlvl_bboxes,
-            mlvl_scores,
-            cfg.score_thr,
-            cfg.nms,
-            cfg.max_per_img,
-            score_factors=mlvl_centerness)
+        # det_bboxes, det_labels = multiclass_nms(
+        #     mlvl_bboxes,
+        #     mlvl_scores,
+        #     cfg.score_thr,
+        #     cfg.nms,
+        #     cfg.max_per_img,
+        #     score_factors=mlvl_centerness)
+        # return det_bboxes, det_labels
+
+        score_thr = cfg.score_thr
+        nms_thr = cfg.nms['iou_threshold']
+        max_boxes = cfg.max_per_img
+        result_boxes, result_confs, result_labels = PostProc(conf_threshold=score_thr, nms_threshold=nms_thr, max_boxes=max_boxes, n_classes=81, coord_h=1, coord_w=1 ).process(mlvl_bboxes, mlvl_scores, img_shape[0], img_shape[1], score_factors=mlvl_centerness)
+
+        det_bboxes = torch.cat([result_boxes, result_confs[:, None]], -1)
+        det_labels = result_labels
         return det_bboxes, det_labels
 
     def _get_points_single(self,
